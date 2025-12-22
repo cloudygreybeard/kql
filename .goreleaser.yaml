@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
 
-version: 1
+version: 2
 
 project_name: kql
 
@@ -33,11 +33,13 @@ archives:
   - id: kql
     builds:
       - kql
-    format: tar.gz
+    formats:
+      - tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
     files:
       - LICENSE
       - README.md
@@ -46,7 +48,7 @@ checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 
 changelog:
   sort: asc
@@ -70,4 +72,3 @@ release:
 # Note: We use a separate workflow step with SSH auth instead of GoReleaser's
 # built-in brews feature, for consistency with other cloudygreybeard packages.
 # See .github/workflows/release.yml for the homebrew tap update logic.
-
