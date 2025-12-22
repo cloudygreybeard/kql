@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 1
+
+project_name: kql
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: kql
+    main: .
+    binary: kql
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/cloudygreybeard/kql/cmd.Version={{.Version}}
+      - -X github.com/cloudygreybeard/kql/cmd.GitCommit={{.Commit}}
+      - -X github.com/cloudygreybeard/kql/cmd.BuildDate={{.Date}}
+
+archives:
+  - id: kql
+    builds:
+      - kql
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
+
+release:
+  github:
+    owner: cloudygreybeard
+    name: kql
+  draft: false
+  prerelease: auto
+  name_template: "{{.ProjectName}} v{{.Version}}"
+
+# Homebrew tap configuration
+# Note: We use a separate workflow step with SSH auth instead of GoReleaser's
+# built-in brews feature, for consistency with other cloudygreybeard packages.
+# See .github/workflows/release.yml for the homebrew tap update logic.
+

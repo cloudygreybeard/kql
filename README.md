@@ -15,17 +15,29 @@ The tool implements the [Microsoft Kusto deep link specification](https://learn.
 
 ## Installation
 
+### Homebrew (macOS/Linux)
+
+```bash
+brew install cloudygreybeard/tap/kql
+```
+
+### Go Install
+
 ```bash
 go install github.com/cloudygreybeard/kql@latest
 ```
 
-Or build from source:
+### From Source
 
 ```bash
 git clone https://github.com/cloudygreybeard/kql.git
 cd kql
-go build -o kql .
+make build
 ```
+
+### Binary Releases
+
+Download pre-built binaries from the [Releases page](https://github.com/cloudygreybeard/kql/releases).
 
 ## Usage
 

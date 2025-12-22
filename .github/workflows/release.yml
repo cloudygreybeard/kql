@@ -1,0 +1,128 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-homebrew-tap:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: cloudygreybeard/homebrew-tap
+          ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+          path: homebrew-tap
+
+      - name: Get release info
+        id: release
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Download and get checksums
+        id: checksums
+        run: |
+          VERSION=${{ steps.release.outputs.version }}
+          
+          # Wait for release assets to be available
+          sleep 10
+          
+          # Download checksums file
+          curl -sL "https://github.com/cloudygreybeard/kql/releases/download/v${VERSION}/checksums.txt" -o checksums.txt
+          
+          # Extract SHA256 for each platform
+          echo "darwin_amd64_sha=$(grep "kql_${VERSION}_darwin_amd64.tar.gz" checksums.txt | awk '{print $1}')" >> $GITHUB_OUTPUT
+          echo "darwin_arm64_sha=$(grep "kql_${VERSION}_darwin_arm64.tar.gz" checksums.txt | awk '{print $1}')" >> $GITHUB_OUTPUT
+          echo "linux_amd64_sha=$(grep "kql_${VERSION}_linux_amd64.tar.gz" checksums.txt | awk '{print $1}')" >> $GITHUB_OUTPUT
+          echo "linux_arm64_sha=$(grep "kql_${VERSION}_linux_arm64.tar.gz" checksums.txt | awk '{print $1}')" >> $GITHUB_OUTPUT
+
+      - name: Update formula
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          DARWIN_AMD64_SHA: ${{ steps.checksums.outputs.darwin_amd64_sha }}
+          DARWIN_ARM64_SHA: ${{ steps.checksums.outputs.darwin_arm64_sha }}
+          LINUX_AMD64_SHA: ${{ steps.checksums.outputs.linux_amd64_sha }}
+          LINUX_ARM64_SHA: ${{ steps.checksums.outputs.linux_arm64_sha }}
+        run: |
+          cat > homebrew-tap/Formula/kql.rb << EOF
+          class Kql < Formula
+            desc "CLI toolkit for Kusto Query Language (KQL) and Azure Data Explorer"
+            homepage "https://github.com/cloudygreybeard/kql"
+            version "${VERSION}"
+            license "Apache-2.0"
+
+            on_macos do
+              on_intel do
+                url "https://github.com/cloudygreybeard/kql/releases/download/v#{version}/kql_#{version}_darwin_amd64.tar.gz"
+                sha256 "${DARWIN_AMD64_SHA}"
+              end
+              on_arm do
+                url "https://github.com/cloudygreybeard/kql/releases/download/v#{version}/kql_#{version}_darwin_arm64.tar.gz"
+                sha256 "${DARWIN_ARM64_SHA}"
+              end
+            end
+
+            on_linux do
+              on_intel do
+                url "https://github.com/cloudygreybeard/kql/releases/download/v#{version}/kql_#{version}_linux_amd64.tar.gz"
+                sha256 "${LINUX_AMD64_SHA}"
+              end
+              on_arm do
+                url "https://github.com/cloudygreybeard/kql/releases/download/v#{version}/kql_#{version}_linux_arm64.tar.gz"
+                sha256 "${LINUX_ARM64_SHA}"
+              end
+            end
+
+            def install
+              bin.install "kql"
+            end
+
+            test do
+              # Test version command
+              assert_match version.to_s, shell_output("#{bin}/kql version")
+              
+              # Test link build (should fail without required flags, confirming CLI works)
+              output = shell_output("#{bin}/kql link build 2>&1", 1)
+              assert_match "required flag", output
+            end
+          end
+          EOF
+
+      - name: Commit and push formula
+        run: |
+          cd homebrew-tap
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Formula/kql.rb
+          git commit -m "kql: update to v${{ steps.release.outputs.version }}"
+          git push
