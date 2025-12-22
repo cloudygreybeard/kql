@@ -31,8 +31,6 @@ builds:
 
 archives:
   - id: kql
-    builds:
-      - kql
     formats:
       - tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
