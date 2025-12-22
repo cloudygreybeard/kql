@@ -72,10 +72,15 @@ kql link extract -f url.txt
 ```bash
 kql link build -c help -d Samples << 'EOF'
 StormEvents
-| where StartTime > ago(7d)
+| where StartTime >= datetime(2007-01-01) and StartTime < datetime(2008-01-01)
 | summarize count() by State
 | top 10 by count_
 EOF
+```
+
+Output:
+```
+https://dataexplorer.azure.com/clusters/help/databases/Samples?query=H4sIAAAAAAAA%2FwouyS%2FKdS1LzSsp5qpRKM9ILUpVCC5JLCoJycxNVbCzVUhJLEktycxN1TAyMDDXNTDUNTDUVEjMS0FSZYOiyAKqiKtGoSS%2FQMHQACQClowHBAAA%2F%2F%2BDCRSAigAAAA%3D%3D
 ```
 
 ## Commands
