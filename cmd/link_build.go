@@ -89,6 +89,17 @@ func runLinkBuild(cmd *cobra.Command, args []string) error {
 
 // getInput reads input from positional args, file, or stdin (in that priority order).
 func getInput(args []string, filePath string) (string, error) {
+	return getInputFrom(args, filePath, os.Stdin, isTerminal)
+}
+
+// isTerminal checks if the given file is a terminal
+func isTerminal(f *os.File) bool {
+	stat, _ := f.Stat()
+	return (stat.Mode() & os.ModeCharDevice) != 0
+}
+
+// getInputFrom is the testable version of getInput
+func getInputFrom(args []string, filePath string, stdin io.Reader, isTerminalFunc func(*os.File) bool) (string, error) {
 	// Priority 1: positional argument
 	if len(args) > 0 {
 		return strings.TrimSpace(strings.Join(args, " ")), nil
@@ -108,12 +119,13 @@ func getInput(args []string, filePath string) (string, error) {
 	}
 
 	// Priority 3: stdin (only if not a terminal)
-	stat, _ := os.Stdin.Stat()
-	if (stat.Mode() & os.ModeCharDevice) != 0 {
-		return "", fmt.Errorf("no input provided (use -f <file>, stdin, or pass query as argument)")
+	if f, ok := stdin.(*os.File); ok {
+		if isTerminalFunc(f) {
+			return "", fmt.Errorf("no input provided (use -f <file>, stdin, or pass query as argument)")
+		}
 	}
 
-	data, err := io.ReadAll(os.Stdin)
+	data, err := io.ReadAll(stdin)
 	if err != nil {
 		return "", fmt.Errorf("reading stdin: %w", err)
 	}
@@ -125,4 +137,5 @@ func getInput(args []string, filePath string) (string, error) {
 
 	return result, nil
 }
+
 

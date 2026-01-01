@@ -34,6 +34,7 @@ and Azure Data Explorer.
 Current capabilities:
   - Build shareable deep links from KQL queries
   - Extract queries from deep links
+  - Lint/validate KQL queries for syntax and semantic errors
 
 Based on the Microsoft Kusto deep link specification:
 https://learn.microsoft.com/en-us/kusto/api/rest/deeplink`,
@@ -43,4 +44,3 @@ https://learn.microsoft.com/en-us/kusto/api/rest/deeplink`,
 func Execute() error {
 	return rootCmd.Execute()
 }
-

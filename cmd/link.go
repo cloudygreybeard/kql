@@ -32,3 +32,4 @@ func init() {
 	rootCmd.AddCommand(linkCmd)
 }
 
+

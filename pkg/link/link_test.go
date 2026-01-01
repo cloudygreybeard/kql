@@ -220,3 +220,49 @@ func TestBuildWithTrailingSlashBaseURL(t *testing.T) {
 	}
 }
 
+func TestExtractInvalidGzip(t *testing.T) {
+	// Valid base64 but invalid gzip data
+	// "not gzip data" in base64 is "bm90IGd6aXAgZGF0YQ=="
+	link := "https://dataexplorer.azure.com/clusters/help/databases/Samples?query=bm90IGd6aXAgZGF0YQ=="
+	_, err := Extract(link)
+	if err == nil {
+		t.Error("Extract() expected error for invalid gzip data")
+	}
+}
+
+func TestExtractVeryLongQuery(t *testing.T) {
+	// Test with a very long query to ensure compression works
+	longQuery := strings.Repeat("StormEvents | where State == 'TEXAS' | ", 100)
+
+	link, err := Build(longQuery, "help", "Samples", "")
+	if err != nil {
+		t.Fatalf("Build() failed: %v", err)
+	}
+
+	extracted, err := Extract(link)
+	if err != nil {
+		t.Fatalf("Extract() failed: %v", err)
+	}
+
+	if extracted != longQuery {
+		t.Error("Round trip failed for long query")
+	}
+}
+
+func TestBuildSpecialCharactersInClusterAndDatabase(t *testing.T) {
+	// Test with special characters that need URL encoding
+	link, err := Build("print 1", "cluster/with/slashes", "database with spaces", "")
+	if err != nil {
+		t.Fatalf("Build() failed: %v", err)
+	}
+
+	// Verify the cluster and database are properly encoded
+	if !strings.Contains(link, "cluster%2Fwith%2Fslashes") {
+		t.Errorf("Build() did not properly encode cluster: %s", link)
+	}
+	if !strings.Contains(link, "database%20with%20spaces") {
+		t.Errorf("Build() did not properly encode database: %s", link)
+	}
+}
+
+

@@ -117,3 +117,4 @@ func Extract(link string) (string, error) {
 	return string(query), nil
 }
 
+

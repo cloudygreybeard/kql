@@ -15,24 +15,24 @@
 package cmd
 
 import (
-	"fmt"
-
-	"github.com/spf13/cobra"
+	"testing"
 )
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print version information",
-	Long:  `Print the version, git commit, and build date of kql.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("kql version %s\n", Version)
-		fmt.Printf("  commit: %s\n", GitCommit)
-		fmt.Printf("  built:  %s\n", BuildDate)
-	},
+func TestVersionCmd(t *testing.T) {
+	// Just run the version command to ensure it doesn't panic
+	versionCmd.Run(versionCmd, nil)
 }
 
-func init() {
-	rootCmd.AddCommand(versionCmd)
+func TestVersionVariables(t *testing.T) {
+	// Test that version variables have default values
+	if Version == "" {
+		t.Error("Version should have a default value")
+	}
+	if GitCommit == "" {
+		t.Error("GitCommit should have a default value")
+	}
+	if BuildDate == "" {
+		t.Error("BuildDate should have a default value")
+	}
 }
-
 
