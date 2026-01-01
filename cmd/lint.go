@@ -76,13 +76,16 @@ type LintDiagnostic struct {
 	Message  string `json:"message"`
 }
 
+// osExit is a variable to allow testing
+var osExit = os.Exit
+
 func runLint(cmd *cobra.Command, args []string) error {
 	hasErrors, err := doLint(args, os.Stdin)
 	if err != nil {
 		return err
 	}
 	if hasErrors {
-		os.Exit(1)
+		osExit(1)
 	}
 	return nil
 }

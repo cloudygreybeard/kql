@@ -425,6 +425,97 @@ func TestRunLint_RunsWithoutPanic(t *testing.T) {
 	}
 }
 
+func TestRunLint_Success(t *testing.T) {
+	// Mock osExit to capture exit codes
+	exitCalled := false
+	exitCode := 0
+	origExit := osExit
+	osExit = func(code int) {
+		exitCalled = true
+		exitCode = code
+	}
+	defer func() { osExit = origExit }()
+
+	// Reset flags
+	lintStrict = false
+	lintQuiet = true
+	lintFormat = "text"
+	defer func() { lintQuiet = false }()
+
+	// Create temp file with valid query
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "valid.kql")
+	if err := os.WriteFile(tmpFile, []byte("print 'hello'"), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	// Set command args
+	lintCmd.SetArgs([]string{tmpFile})
+	err := runLint(lintCmd, []string{tmpFile})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if exitCalled {
+		t.Errorf("osExit should not be called for valid query, but was called with code %d", exitCode)
+	}
+}
+
+func TestRunLint_WithErrors(t *testing.T) {
+	// Mock osExit to capture exit codes
+	exitCalled := false
+	exitCode := 0
+	origExit := osExit
+	osExit = func(code int) {
+		exitCalled = true
+		exitCode = code
+	}
+	defer func() { osExit = origExit }()
+
+	// Reset flags
+	lintStrict = false
+	lintQuiet = true
+	lintFormat = "text"
+	defer func() { lintQuiet = false }()
+
+	// Create temp file with syntax error
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "error.kql")
+	if err := os.WriteFile(tmpFile, []byte("T | where (("), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	err := runLint(lintCmd, []string{tmpFile})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !exitCalled {
+		t.Error("osExit should be called for query with errors")
+	}
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1, got %d", exitCode)
+	}
+}
+
+func TestRunLint_DoLintError(t *testing.T) {
+	// Reset flags with invalid format to trigger error
+	lintStrict = false
+	lintQuiet = false
+	lintFormat = "invalid"
+	defer func() { lintFormat = "text" }()
+
+	// Create temp file with valid query
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test.kql")
+	if err := os.WriteFile(tmpFile, []byte("print 'hello'"), 0644); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	err := runLint(lintCmd, []string{tmpFile})
+	if err == nil {
+		t.Error("expected error for invalid format")
+	}
+}
+
 func TestLintReader_ReadError(t *testing.T) {
 	lintStrict = false
 	_, err := lintReader("test", errorReader{})
