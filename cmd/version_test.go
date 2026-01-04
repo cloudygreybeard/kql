@@ -35,4 +35,3 @@ func TestVersionVariables(t *testing.T) {
 		t.Error("BuildDate should have a default value")
 	}
 }
-

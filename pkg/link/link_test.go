@@ -264,5 +264,3 @@ func TestBuildSpecialCharactersInClusterAndDatabase(t *testing.T) {
 		t.Errorf("Build() did not properly encode database: %s", link)
 	}
 }
-
-

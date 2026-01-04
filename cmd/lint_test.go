@@ -623,4 +623,3 @@ func TestLintQuery_StrictModeWithWarningsPath(t *testing.T) {
 	// Just verify we exercised the code path
 	t.Logf("Got %d diagnostics", len(diagnostics))
 }
-

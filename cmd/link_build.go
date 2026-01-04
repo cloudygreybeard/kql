@@ -137,5 +137,3 @@ func getInputFrom(args []string, filePath string, stdin io.Reader, isTerminalFun
 
 	return result, nil
 }
-
-

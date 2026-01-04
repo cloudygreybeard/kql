@@ -209,4 +209,3 @@ func TestRunLinkBuild_EmptyCluster(t *testing.T) {
 		t.Error("expected error for empty cluster")
 	}
 }
-

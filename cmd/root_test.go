@@ -59,4 +59,3 @@ func TestRootCmdHasSubcommands(t *testing.T) {
 		}
 	}
 }
-

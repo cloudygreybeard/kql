@@ -30,7 +30,7 @@ func TestMain_Direct(t *testing.T) {
 
 	// Test with --help which doesn't exit
 	os.Args = []string{"kql", "--help"}
-	
+
 	// main() will call cmd.Execute() which prints help and returns nil
 	// This should not panic or exit
 	main()
@@ -176,4 +176,3 @@ func TestLinkCommands(t *testing.T) {
 		}
 	})
 }
-
