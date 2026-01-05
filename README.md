@@ -8,6 +8,7 @@ A command-line toolkit for Kusto Query Language (KQL) and Azure Data Explorer.
 
 - **Build** shareable deep links from KQL queries
 - **Extract** queries from existing deep links
+- **Lint** validate KQL queries for syntax and semantic errors
 
 Deep links open directly in Azure Data Explorer with your query pre-filled, making them ideal for documentation, runbooks, and issue trackers.
 
@@ -83,11 +84,35 @@ Output:
 https://dataexplorer.azure.com/clusters/help/databases/Samples?query=H4sIAAAAAAAA%2FwouyS%2FKdS1LzSsp5qpRKM9ILUpVCC5JLCoJycxNVbCzVUhJLEktycxN1TAyMDDXNTDUNTDUVEjMS0FSZYOiyAKqiKtGoSS%2FQMHQACQClowHBAAA%2F%2F%2BDCRSAigAAAA%3D%3D
 ```
 
+### Lint KQL queries
+
+Validate KQL syntax and optionally perform semantic analysis:
+
+```bash
+# Lint from stdin
+echo "T | where x > 10" | kql lint
+
+# Lint a file
+kql lint query.kql
+
+# Lint multiple files
+kql lint queries/*.kql
+
+# Enable semantic analysis (type checking, name resolution)
+kql lint --strict query.kql
+
+# JSON output for CI/CD pipelines
+kql lint --format json query.kql
+```
+
+The lint command returns exit code 0 if no errors are found, and 1 if errors are detected.
+
 ## Commands
 
 ```
 kql link build     Build a deep link from a KQL query
 kql link extract   Extract the query from a deep link
+kql lint           Validate KQL query syntax and semantics
 kql version        Print version information
 kql help           Help about any command
 kql completion     Generate shell completion scripts
@@ -109,6 +134,14 @@ kql completion     Generate shell completion scripts
 | Flag | Short | Description | Required |
 |------|-------|-------------|----------|
 | `--file` | `-f` | Read URL from file | No |
+
+### `kql lint`
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--strict` | Enable semantic analysis (type checking, name resolution) | `false` |
+| `--format` | Output format: `text` or `json` | `text` |
+| `--quiet` | Suppress success messages | `false` |
 
 ## How it works
 
@@ -150,4 +183,5 @@ Apache License 2.0 - see [LICENSE](LICENSE) for details.
 
 - [Microsoft Kusto Deep Link Documentation](https://learn.microsoft.com/en-us/kusto/api/rest/deeplink)
 - [Azure Data Explorer](https://dataexplorer.azure.com/)
+- [kqlparser](https://github.com/cloudygreybeard/kqlparser) - The KQL parser library used by this tool
 
