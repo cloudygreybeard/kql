@@ -11,6 +11,7 @@ A command-line toolkit for Kusto Query Language (KQL) and Azure Data Explorer.
 - **Lint** validate KQL queries for syntax and semantic errors
 - **Explain** get AI-powered explanations of KQL queries
 - **Suggest** get AI-powered optimization suggestions
+- **Generate** create KQL from natural language descriptions
 
 Deep links open directly in Azure Data Explorer with your query pre-filled, making them ideal for documentation, runbooks, and issue trackers.
 
@@ -155,6 +156,25 @@ kql suggest --focus readability -f complex_query.kql
 kql suggest --focus correctness "T | where Timestamp > ago(7d)"
 ```
 
+### Generate KQL from natural language
+
+Create KQL queries from plain English descriptions:
+
+```bash
+# Simple generation
+kql generate "count events by state"
+
+# With table context (improves accuracy)
+kql generate --table StormEvents "show top 10 states by damage"
+
+# With schema hint (best results)
+kql generate --table StormEvents --schema "State, StartTime, DamageProperty" \
+    "find events in Texas with damage over 1 million"
+
+# Pipe the result to lint for validation
+kql generate --table T "count by category" | kql lint
+```
+
 ## Commands
 
 ```
@@ -163,6 +183,7 @@ kql link extract   Extract the query from a deep link
 kql lint           Validate KQL query syntax and semantics
 kql explain        Explain a KQL query using AI
 kql suggest        Get AI-powered optimization suggestions
+kql generate       Generate KQL from natural language
 kql version        Print version information
 kql help           Help about any command
 kql completion     Generate shell completion scripts
@@ -213,6 +234,19 @@ kql completion     Generate shell completion scripts
 | `--model` | Model name (provider-specific) | `llama3.2` |
 | `--temperature` | Creativity (0.0-1.0) | `0.3` |
 | `--file` `-f` | Read query from file | - |
+| `--verbose` `-v` | Show additional context | `false` |
+| `--timeout` | Timeout in seconds | `60` |
+
+### `kql generate`
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--table` `-t` | Target table name | - |
+| `--schema` `-s` | Table schema (comma-separated columns) | - |
+| `--provider` | AI provider (same as explain) | `ollama` |
+| `--model` | Model name (provider-specific) | `llama3.2` |
+| `--temperature` | Creativity (0.0-1.0) | `0.2` |
+| `--file` `-f` | Read description from file | - |
 | `--verbose` `-v` | Show additional context | `false` |
 | `--timeout` | Timeout in seconds | `60` |
 
