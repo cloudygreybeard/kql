@@ -10,6 +10,7 @@ A command-line toolkit for Kusto Query Language (KQL) and Azure Data Explorer.
 - **Extract** queries from existing deep links
 - **Lint** validate KQL queries for syntax and semantic errors
 - **Explain** get AI-powered explanations of KQL queries
+- **Suggest** get AI-powered optimization suggestions
 
 Deep links open directly in Azure Data Explorer with your query pre-filled, making them ideal for documentation, runbooks, and issue trackers.
 
@@ -136,6 +137,24 @@ Supported AI providers:
 - **vertex** - Google Vertex AI (Gemini, Claude)
 - **azure** - Azure OpenAI (GPT-4, GPT-4o)
 
+### Get optimization suggestions
+
+Get AI-powered suggestions to improve your KQL queries:
+
+```bash
+# Get all suggestions (performance, readability, correctness)
+kql suggest "T | where A > 0 | where B > 0 | project A, B"
+
+# Focus on performance only
+kql suggest --focus performance "T | join kind=inner T2 on Id"
+
+# Focus on readability
+kql suggest --focus readability -f complex_query.kql
+
+# Focus on correctness (potential bugs)
+kql suggest --focus correctness "T | where Timestamp > ago(7d)"
+```
+
 ## Commands
 
 ```
@@ -143,6 +162,7 @@ kql link build     Build a deep link from a KQL query
 kql link extract   Extract the query from a deep link
 kql lint           Validate KQL query syntax and semantics
 kql explain        Explain a KQL query using AI
+kql suggest        Get AI-powered optimization suggestions
 kql version        Print version information
 kql help           Help about any command
 kql completion     Generate shell completion scripts
@@ -183,6 +203,23 @@ kql completion     Generate shell completion scripts
 | `--file` `-f` | Read query from file | - |
 | `--verbose` `-v` | Show additional context | `false` |
 | `--timeout` | Timeout in seconds | `60` |
+
+### `kql suggest`
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--focus` | Suggestion focus: `performance`, `readability`, `correctness`, `all` | `all` |
+| `--provider` | AI provider (same as explain) | `ollama` |
+| `--model` | Model name (provider-specific) | `llama3.2` |
+| `--temperature` | Creativity (0.0-1.0) | `0.3` |
+| `--file` `-f` | Read query from file | - |
+| `--verbose` `-v` | Show additional context | `false` |
+| `--timeout` | Timeout in seconds | `60` |
+
+### AI Provider Flags (for `explain` and `suggest`)
+
+| Flag | Description | Default |
+|------|-------------|---------|
 | `--vertex-project` | GCP project ID (Vertex AI) | - |
 | `--vertex-location` | GCP location (Vertex AI) | `us-central1` |
 | `--azure-endpoint` | Azure OpenAI endpoint URL | - |
