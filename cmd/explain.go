@@ -196,4 +196,3 @@ Keep the explanation accessible to someone familiar with SQL but new to KQL.`
 
 	return prompt
 }
-
