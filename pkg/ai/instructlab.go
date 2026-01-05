@@ -26,12 +26,12 @@ type InstructLabProvider struct {
 func NewInstructLabProvider(cfg Config) (*InstructLabProvider, error) {
 	endpoint := cfg.InstructLab.Endpoint
 	if endpoint == "" {
-		endpoint = "http://localhost:8000"
+		endpoint = DefaultInstructLabEndpoint
 	}
 
 	model := cfg.Model
 	if model == "" {
-		model = "default"
+		model = DefaultInstructLabModel
 	}
 
 	return &InstructLabProvider{
@@ -129,4 +129,3 @@ type openaiChatResponse struct {
 type openaiChoice struct {
 	Message openaiChatMessage `json:"message"`
 }
-

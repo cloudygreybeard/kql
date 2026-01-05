@@ -25,12 +25,12 @@ type OllamaProvider struct {
 func NewOllamaProvider(cfg Config) (*OllamaProvider, error) {
 	endpoint := cfg.Ollama.Endpoint
 	if endpoint == "" {
-		endpoint = "http://localhost:11434"
+		endpoint = DefaultOllamaEndpoint
 	}
 
 	model := cfg.Model
 	if model == "" {
-		model = "llama3.2"
+		model = DefaultOllamaModel
 	}
 
 	return &OllamaProvider{
@@ -127,4 +127,3 @@ type ollamaOptions struct {
 type ollamaChatResponse struct {
 	Message ollamaChatMessage `json:"message"`
 }
-

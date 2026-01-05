@@ -42,12 +42,12 @@ func NewVertexProvider(cfg Config) (*VertexProvider, error) {
 
 	location := cfg.Vertex.Location
 	if location == "" {
-		location = "us-central1"
+		location = DefaultVertexLocation
 	}
 
 	model := cfg.Model
 	if model == "" {
-		model = "gemini-1.5-flash"
+		model = DefaultVertexModel
 	}
 
 	// Create the actual client
@@ -106,4 +106,3 @@ func (p *VertexProvider) Close() error {
 	}
 	return nil
 }
-

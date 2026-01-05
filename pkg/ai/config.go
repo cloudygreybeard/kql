@@ -124,4 +124,3 @@ func MergeFileConfig(cfg Config, fileCfg *FileConfig) Config {
 
 	return cfg
 }
-

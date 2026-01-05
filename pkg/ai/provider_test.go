@@ -10,17 +10,17 @@ import (
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
-	if cfg.Provider != "ollama" {
-		t.Errorf("expected provider 'ollama', got %q", cfg.Provider)
+	if cfg.Provider != DefaultProvider {
+		t.Errorf("expected provider %q, got %q", DefaultProvider, cfg.Provider)
 	}
-	if cfg.Model != "llama3.2" {
-		t.Errorf("expected model 'llama3.2', got %q", cfg.Model)
+	if cfg.Model != DefaultOllamaModel {
+		t.Errorf("expected model %q, got %q", DefaultOllamaModel, cfg.Model)
 	}
-	if cfg.Temperature != 0.2 {
-		t.Errorf("expected temperature 0.2, got %f", cfg.Temperature)
+	if cfg.Temperature != DefaultTemperature {
+		t.Errorf("expected temperature %f, got %f", DefaultTemperature, cfg.Temperature)
 	}
-	if cfg.Ollama.Endpoint != "http://localhost:11434" {
-		t.Errorf("expected ollama endpoint 'http://localhost:11434', got %q", cfg.Ollama.Endpoint)
+	if cfg.Ollama.Endpoint != DefaultOllamaEndpoint {
+		t.Errorf("expected ollama endpoint %q, got %q", DefaultOllamaEndpoint, cfg.Ollama.Endpoint)
 	}
 }
 
@@ -133,4 +133,3 @@ func TestMergeFileConfig_NilFileConfig(t *testing.T) {
 		t.Errorf("expected provider 'ollama', got %q", merged.Provider)
 	}
 }
-

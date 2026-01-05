@@ -50,7 +50,7 @@ func NewAzureProvider(cfg Config) (*AzureProvider, error) {
 
 	model := cfg.Model
 	if model == "" {
-		model = "gpt-4o"
+		model = DefaultAzureModel
 	}
 
 	// Create the actual client
@@ -87,4 +87,3 @@ func (p *AzureProvider) Complete(ctx context.Context, prompt string) (string, er
 func (p *AzureProvider) CompleteChat(ctx context.Context, messages []Message) (string, error) {
 	return p.client.ChatComplete(ctx, messages, p.temperature)
 }
-

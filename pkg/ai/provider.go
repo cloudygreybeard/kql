@@ -10,6 +10,34 @@ import (
 	"fmt"
 )
 
+// Default configuration values.
+const (
+	// DefaultProvider is the default AI provider.
+	DefaultProvider = "ollama"
+
+	// DefaultTemperature is the default temperature for generation.
+	DefaultTemperature = 0.2
+
+	// Ollama defaults
+	DefaultOllamaHost     = "localhost"
+	DefaultOllamaPort     = "11434"
+	DefaultOllamaEndpoint = "http://" + DefaultOllamaHost + ":" + DefaultOllamaPort
+	DefaultOllamaModel    = "llama3.2"
+
+	// InstructLab defaults
+	DefaultInstructLabHost     = "localhost"
+	DefaultInstructLabPort     = "8000"
+	DefaultInstructLabEndpoint = "http://" + DefaultInstructLabHost + ":" + DefaultInstructLabPort
+	DefaultInstructLabModel    = "default"
+
+	// Vertex AI defaults
+	DefaultVertexLocation = "us-central1"
+	DefaultVertexModel    = "gemini-1.5-flash"
+
+	// Azure defaults
+	DefaultAzureModel = "gpt-4o"
+)
+
 // Provider defines the interface for AI/LLM providers.
 type Provider interface {
 	// Complete sends a prompt and returns the model's response.
@@ -116,17 +144,17 @@ func NewProvider(cfg Config) (Provider, error) {
 // DefaultConfig returns a configuration with sensible defaults.
 func DefaultConfig() Config {
 	return Config{
-		Provider:    "ollama",
-		Model:       "llama3.2",
-		Temperature: 0.2,
+		Provider:    DefaultProvider,
+		Model:       DefaultOllamaModel,
+		Temperature: DefaultTemperature,
 		Ollama: OllamaConfig{
-			Endpoint: "http://localhost:11434",
+			Endpoint: DefaultOllamaEndpoint,
 		},
 		Vertex: VertexConfig{
-			Location: "us-central1",
+			Location: DefaultVertexLocation,
 		},
 		InstructLab: InstructLabConfig{
-			Endpoint: "http://localhost:8000",
+			Endpoint: DefaultInstructLabEndpoint,
 		},
 	}
 }
