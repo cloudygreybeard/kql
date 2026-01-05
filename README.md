@@ -9,6 +9,7 @@ A command-line toolkit for Kusto Query Language (KQL) and Azure Data Explorer.
 - **Build** shareable deep links from KQL queries
 - **Extract** queries from existing deep links
 - **Lint** validate KQL queries for syntax and semantic errors
+- **Explain** get AI-powered explanations of KQL queries
 
 Deep links open directly in Azure Data Explorer with your query pre-filled, making them ideal for documentation, runbooks, and issue trackers.
 
@@ -107,12 +108,41 @@ kql lint --format json query.kql
 
 The lint command returns exit code 0 if no errors are found, and 1 if errors are detected.
 
+### Explain KQL queries with AI
+
+Get natural language explanations of KQL queries using AI models:
+
+```bash
+# Using local Ollama (default)
+kql explain "StormEvents | summarize count() by State"
+
+# From file
+kql explain -f query.kql
+
+# Use Vertex AI (Gemini)
+kql explain --provider vertex --vertex-project my-project "T | take 10"
+
+# Use Azure OpenAI
+kql explain --provider azure --azure-endpoint https://myorg.openai.azure.com \
+    --azure-deployment gpt-4o "T | take 10"
+
+# Use local InstructLab model
+kql explain --provider instructlab --model kql-expert "T | take 10"
+```
+
+Supported AI providers:
+- **ollama** - Local Ollama instance (Llama, Mistral, etc.)
+- **instructlab** - Local InstructLab instance (fine-tuned models)
+- **vertex** - Google Vertex AI (Gemini, Claude)
+- **azure** - Azure OpenAI (GPT-4, GPT-4o)
+
 ## Commands
 
 ```
 kql link build     Build a deep link from a KQL query
 kql link extract   Extract the query from a deep link
 kql lint           Validate KQL query syntax and semantics
+kql explain        Explain a KQL query using AI
 kql version        Print version information
 kql help           Help about any command
 kql completion     Generate shell completion scripts
@@ -142,6 +172,50 @@ kql completion     Generate shell completion scripts
 | `--strict` | Enable semantic analysis (type checking, name resolution) | `false` |
 | `--format` | Output format: `text` or `json` | `text` |
 | `--quiet` | Suppress success messages | `false` |
+
+### `kql explain`
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--provider` | AI provider: `ollama`, `instructlab`, `vertex`, `azure` | `ollama` |
+| `--model` | Model name (provider-specific) | `llama3.2` |
+| `--temperature` | Creativity (0.0-1.0) | `0.2` |
+| `--file` `-f` | Read query from file | - |
+| `--verbose` `-v` | Show additional context | `false` |
+| `--timeout` | Timeout in seconds | `60` |
+| `--vertex-project` | GCP project ID (Vertex AI) | - |
+| `--vertex-location` | GCP location (Vertex AI) | `us-central1` |
+| `--azure-endpoint` | Azure OpenAI endpoint URL | - |
+| `--azure-deployment` | Azure OpenAI deployment name | - |
+| `--ollama-endpoint` | Ollama endpoint URL | `http://localhost:11434` |
+| `--instructlab-endpoint` | InstructLab endpoint URL | `http://localhost:8000` |
+
+## Configuration
+
+`kql` can be configured via a YAML file at `~/.kql/config.yaml`:
+
+```yaml
+ai:
+  provider: ollama
+  model: llama3.2
+  temperature: 0.2
+
+  ollama:
+    endpoint: http://localhost:11434
+
+  vertex:
+    project: my-gcp-project
+    location: us-central1
+
+  azure:
+    endpoint: https://myorg.openai.azure.com
+    deployment: gpt-4o-deployment
+
+  instructlab:
+    endpoint: http://localhost:8000
+```
+
+Command-line flags override configuration file settings.
 
 ## How it works
 

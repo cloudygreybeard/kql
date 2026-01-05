@@ -1,0 +1,32 @@
+# kql configuration file
+# Copy to ~/.kql/config.yaml and customize
+
+ai:
+  # Default AI provider: ollama, instructlab, vertex, azure
+  provider: ollama
+
+  # Default model name (provider-specific)
+  model: llama3.2
+
+  # Temperature controls randomness (0.0 = deterministic, 1.0 = creative)
+  temperature: 0.2
+
+  # Ollama configuration (local LLM inference)
+  ollama:
+    endpoint: http://localhost:11434
+
+  # InstructLab configuration (fine-tuned local models)
+  instructlab:
+    endpoint: http://localhost:8000
+
+  # Google Vertex AI configuration
+  vertex:
+    project: ""      # GCP project ID (or set KQL_GCP_PROJECT / GOOGLE_CLOUD_PROJECT)
+    location: us-central1
+
+  # Azure OpenAI configuration
+  azure:
+    endpoint: ""     # Azure OpenAI endpoint URL (or set AZURE_OPENAI_ENDPOINT)
+    deployment: ""   # Deployment name (or set AZURE_OPENAI_DEPLOYMENT)
+    # api_key: ""    # API key (or set AZURE_OPENAI_API_KEY) - prefer env var
+
