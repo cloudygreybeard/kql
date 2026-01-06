@@ -4,19 +4,19 @@ A command-line toolkit for Kusto Query Language (KQL) and Azure Data Explorer.
 
 ## Overview
 
-`kql` provides utilities for working with KQL queries and Azure Data Explorer. Current capabilities include:
+`kql` is a developer toolkit for working with KQL queries. It combines practical utilities with AI-powered assistance to help you write, validate, share, and understand KQL.
 
-- **Build** shareable deep links from KQL queries
-- **Extract** queries from existing deep links
-- **Lint** validate KQL queries for syntax and semantic errors
-- **Explain** get AI-powered explanations of KQL queries
-- **Suggest** get AI-powered optimization suggestions
-- **Generate** create KQL from natural language descriptions
-- **Fix** get AI-suggested fixes for syntax errors
+### Commands
 
-Deep links open directly in Azure Data Explorer with your query pre-filled, making them ideal for documentation, runbooks, and issue trackers.
-
-The tool implements the [Microsoft Kusto deep link specification](https://learn.microsoft.com/en-us/kusto/api/rest/deeplink).
+| Command | Description |
+|---------|-------------|
+| `kql link build` | Create shareable deep links from KQL queries |
+| `kql link extract` | Extract queries from existing deep links |
+| `kql lint` | Validate KQL syntax and semantics |
+| `kql explain` | Get AI-powered explanations of queries |
+| `kql suggest` | Get AI-powered optimization suggestions |
+| `kql generate` | Create KQL from natural language |
+| `kql fix` | Get AI-suggested fixes for syntax errors |
 
 ## Installation
 
@@ -44,9 +44,11 @@ make build
 
 Download pre-built binaries from the [Releases page](https://github.com/cloudygreybeard/kql/releases).
 
-## Usage
+## Deep Links
 
-### Build a deep link from a query
+Deep links open directly in Azure Data Explorer with your query pre-filled—ideal for documentation, runbooks, and sharing.
+
+### Build a deep link
 
 ```bash
 # From stdin
@@ -55,26 +57,10 @@ echo 'StormEvents | take 10' | kql link build -c help -d Samples
 # From file
 kql link build -c mycluster.westeurope -d mydb -f query.kql
 
-# As argument (for short queries)
+# Inline (short queries)
 kql link build -c help -d Samples "print 'hello'"
-```
 
-### Extract a query from a deep link
-
-```bash
-# As argument
-kql link extract "https://dataexplorer.azure.com/clusters/help/databases/Samples?query=..."
-
-# From stdin
-echo 'https://dataexplorer.azure.com/...' | kql link extract
-
-# From file
-kql link extract -f url.txt
-```
-
-### Multi-line query example
-
-```bash
+# Multi-line with heredoc
 kql link build -c help -d Samples << 'EOF'
 StormEvents
 | where StartTime >= datetime(2007-01-01) and StartTime < datetime(2008-01-01)
@@ -83,225 +69,138 @@ StormEvents
 EOF
 ```
 
-Output:
-```
-https://dataexplorer.azure.com/clusters/help/databases/Samples?query=H4sIAAAAAAAA%2FwouyS%2FKdS1LzSsp5qpRKM9ILUpVCC5JLCoJycxNVbCzVUhJLEktycxN1TAyMDDXNTDUNTDUVEjMS0FSZYOiyAKqiKtGoSS%2FQMHQACQClowHBAAA%2F%2F%2BDCRSAigAAAA%3D%3D
-```
-
-### Lint KQL queries
-
-Validate KQL syntax and optionally perform semantic analysis:
+### Extract a query
 
 ```bash
-# Lint from stdin
+# From argument
+kql link extract "https://dataexplorer.azure.com/clusters/help/databases/Samples?query=..."
+
+# From stdin
+pbpaste | kql link extract
+
+# From file
+kql link extract -f url.txt
+```
+
+### How deep links work
+
+1. The query is compressed with gzip
+2. Compressed data is encoded as base64
+3. The base64 string is URL-encoded
+4. The URL is assembled with cluster and database
+
+This follows the [Microsoft Kusto deep link specification](https://learn.microsoft.com/en-us/kusto/api/rest/deeplink) and produces compact URLs that work within browser limits.
+
+## Validation
+
+The `lint` command validates KQL syntax using the [kqlparser](https://github.com/cloudygreybeard/kqlparser) library.
+
+```bash
+# Validate from stdin
 echo "T | where x > 10" | kql lint
 
-# Lint a file
+# Validate a file
 kql lint query.kql
 
-# Lint multiple files
+# Validate multiple files
 kql lint queries/*.kql
 
 # Enable semantic analysis (type checking, name resolution)
 kql lint --strict query.kql
 
-# JSON output for CI/CD pipelines
+# JSON output for CI/CD
 kql lint --format json query.kql
 ```
 
-The lint command returns exit code 0 if no errors are found, and 1 if errors are detected.
+Exit codes: `0` = valid, `1` = errors found.
 
-### Explain KQL queries with AI
+## AI-Powered Commands
 
-Get natural language explanations of KQL queries using AI models:
+`kql` integrates with local and cloud AI models for query explanation, optimization, generation, and error correction.
+
+### Providers
+
+| Provider | Description | Setup |
+|----------|-------------|-------|
+| `ollama` | Local models (Llama, Mistral, etc.) | [Install Ollama](https://ollama.ai) |
+| `instructlab` | Local fine-tuned models | [Install InstructLab](https://instructlab.ai) |
+| `vertex` | Google Vertex AI (Gemini, Claude) | GCP project with Vertex API enabled |
+| `azure` | Azure OpenAI (GPT-4, GPT-4o) | Azure OpenAI deployment |
+
+### Explain
+
+Get natural language explanations of KQL queries:
 
 ```bash
-# Using local Ollama (default)
+# Local Ollama (default)
 kql explain "StormEvents | summarize count() by State"
 
 # From file
 kql explain -f query.kql
 
-# Use Vertex AI (Gemini)
+# Vertex AI
 kql explain --provider vertex --vertex-project my-project "T | take 10"
 
-# Use Azure OpenAI
+# Azure OpenAI
 kql explain --provider azure --azure-endpoint https://myorg.openai.azure.com \
     --azure-deployment gpt-4o "T | take 10"
-
-# Use local InstructLab model
-kql explain --provider instructlab --model kql-expert "T | take 10"
 ```
 
-Supported AI providers:
-- **ollama** - Local Ollama instance (Llama, Mistral, etc.)
-- **instructlab** - Local InstructLab instance (fine-tuned models)
-- **vertex** - Google Vertex AI (Gemini, Claude)
-- **azure** - Azure OpenAI (GPT-4, GPT-4o)
+### Suggest
 
-### Get optimization suggestions
-
-Get AI-powered suggestions to improve your KQL queries:
+Get optimization suggestions for performance, readability, or correctness:
 
 ```bash
-# Get all suggestions (performance, readability, correctness)
+# All suggestions
 kql suggest "T | where A > 0 | where B > 0 | project A, B"
 
-# Focus on performance only
+# Focus on performance
 kql suggest --focus performance "T | join kind=inner T2 on Id"
 
 # Focus on readability
 kql suggest --focus readability -f complex_query.kql
-
-# Focus on correctness (potential bugs)
-kql suggest --focus correctness "T | where Timestamp > ago(7d)"
 ```
 
-### Generate KQL from natural language
+### Generate
 
-Create KQL queries from plain English descriptions:
+Create KQL from natural language descriptions:
 
 ```bash
 # Simple generation
 kql generate "count events by state"
 
-# With table context (improves accuracy)
+# With table context
 kql generate --table StormEvents "show top 10 states by damage"
 
-# With schema hint (best results)
+# With schema hint
 kql generate --table StormEvents --schema "State, StartTime, DamageProperty" \
     "find events in Texas with damage over 1 million"
 
-# Pipe the result to lint for validation
+# Validate the result
 kql generate --table T "count by category" | kql lint
 ```
 
-### Fix syntax errors
+### Fix
 
-Get AI-suggested fixes for KQL queries with syntax errors:
+Get AI-suggested fixes for syntax errors:
 
 ```bash
-# Fix a query with errors
+# Fix a broken query
 kql fix "T | summarize count( by State"
 
-# Dry run (preview the fix without outputting)
+# Preview without output
 kql fix --dry-run "T | where x >"
 
-# Verbose mode (see errors and validation)
+# Verbose (show errors and reasoning)
 kql fix -v "T | summarize count( by State"
 
-# From file
-kql fix -f broken_query.kql > fixed_query.kql
+# Fix and save
+kql fix -f broken.kql > fixed.kql
 ```
-
-The fix command:
-1. Parses the query to identify syntax errors
-2. Sends errors + query to AI for correction
-3. Validates the suggested fix
-4. Outputs the corrected query
-
-## Commands
-
-```
-kql link build     Build a deep link from a KQL query
-kql link extract   Extract the query from a deep link
-kql lint           Validate KQL query syntax and semantics
-kql explain        Explain a KQL query using AI
-kql suggest        Get AI-powered optimization suggestions
-kql generate       Generate KQL from natural language
-kql fix            Fix syntax errors using AI
-kql version        Print version information
-kql help           Help about any command
-kql completion     Generate shell completion scripts
-```
-
-## Flags
-
-### `kql link build`
-
-| Flag | Short | Description | Required |
-|------|-------|-------------|----------|
-| `--cluster` | `-c` | Kusto cluster name (e.g., `mycluster.westeurope`) | Yes |
-| `--database` | `-d` | Database name | Yes |
-| `--base-url` | `-b` | Base URL (default: `https://dataexplorer.azure.com`) | No |
-| `--file` | `-f` | Read query from file | No |
-
-### `kql link extract`
-
-| Flag | Short | Description | Required |
-|------|-------|-------------|----------|
-| `--file` | `-f` | Read URL from file | No |
-
-### `kql lint`
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--strict` | Enable semantic analysis (type checking, name resolution) | `false` |
-| `--format` | Output format: `text` or `json` | `text` |
-| `--quiet` | Suppress success messages | `false` |
-
-### `kql explain`
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--provider` | AI provider: `ollama`, `instructlab`, `vertex`, `azure` | `ollama` |
-| `--model` | Model name (provider-specific) | `llama3.2` |
-| `--temperature` | Creativity (0.0-1.0) | `0.2` |
-| `--file` `-f` | Read query from file | - |
-| `--verbose` `-v` | Show additional context | `false` |
-| `--timeout` | Timeout in seconds | `60` |
-
-### `kql suggest`
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--focus` | Suggestion focus: `performance`, `readability`, `correctness`, `all` | `all` |
-| `--provider` | AI provider (same as explain) | `ollama` |
-| `--model` | Model name (provider-specific) | `llama3.2` |
-| `--temperature` | Creativity (0.0-1.0) | `0.3` |
-| `--file` `-f` | Read query from file | - |
-| `--verbose` `-v` | Show additional context | `false` |
-| `--timeout` | Timeout in seconds | `60` |
-
-### `kql generate`
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--table` `-t` | Target table name | - |
-| `--schema` `-s` | Table schema (comma-separated columns) | - |
-| `--provider` | AI provider (same as explain) | `ollama` |
-| `--model` | Model name (provider-specific) | `llama3.2` |
-| `--temperature` | Creativity (0.0-1.0) | `0.2` |
-| `--file` `-f` | Read description from file | - |
-| `--verbose` `-v` | Show additional context | `false` |
-| `--timeout` | Timeout in seconds | `60` |
-
-### `kql fix`
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--dry-run` | Preview fix without outputting | `false` |
-| `--provider` | AI provider (same as explain) | `ollama` |
-| `--model` | Model name (provider-specific) | `llama3.2` |
-| `--temperature` | Creativity (0.0-1.0) | `0.1` |
-| `--file` `-f` | Read query from file | - |
-| `--verbose` `-v` | Show errors and reasoning | `false` |
-| `--timeout` | Timeout in seconds | `60` |
-
-### AI Provider Flags (for `explain` and `suggest`)
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--vertex-project` | GCP project ID (Vertex AI) | - |
-| `--vertex-location` | GCP location (Vertex AI) | `us-central1` |
-| `--azure-endpoint` | Azure OpenAI endpoint URL | - |
-| `--azure-deployment` | Azure OpenAI deployment name | - |
-| `--ollama-endpoint` | Ollama endpoint URL | `http://localhost:11434` |
-| `--instructlab-endpoint` | InstructLab endpoint URL | `http://localhost:8000` |
 
 ## Configuration
 
-`kql` can be configured via a YAML file at `~/.kql/config.yaml`:
+Configure defaults in `~/.kql/config.yaml`:
 
 ```yaml
 ai:
@@ -326,26 +225,73 @@ ai:
 
 Command-line flags override configuration file settings.
 
-## How it works
+## Flag Reference
 
-1. **Compression**: The query is compressed using gzip
-2. **Encoding**: The compressed data is encoded with base64
-3. **URL encoding**: The base64 string is URL-encoded
-4. **URL construction**: The final URL is assembled with the cluster and database
+### `kql link build`
 
-This produces shorter URLs that work within browser URI length limits, even for complex queries.
+| Flag | Short | Description | Required |
+|------|-------|-------------|----------|
+| `--cluster` | `-c` | Cluster name (e.g., `help`, `mycluster.westeurope`) | Yes |
+| `--database` | `-d` | Database name | Yes |
+| `--base-url` | `-b` | Base URL (default: `https://dataexplorer.azure.com`) | No |
+| `--file` | `-f` | Read query from file | No |
 
-## URL Format
+### `kql link extract`
 
-Generated URLs follow this format:
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--file` | `-f` | Read URL from file |
 
-```
-https://dataexplorer.azure.com/clusters/{cluster}/databases/{database}?query={encoded}
-```
+### `kql lint`
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--strict` | Enable semantic analysis | `false` |
+| `--format` | Output format: `text`, `json` | `text` |
+| `--quiet` | Suppress success messages | `false` |
+
+### AI Commands (`explain`, `suggest`, `generate`, `fix`)
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--provider` | AI provider | `ollama` |
+| `--model` | Model name | provider-specific |
+| `--temperature` | Creativity (0.0–1.0) | `0.2` |
+| `--file` `-f` | Read input from file | - |
+| `--verbose` `-v` | Show additional context | `false` |
+| `--timeout` | Timeout in seconds | `60` |
+
+### Provider-Specific Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--ollama-endpoint` | Ollama endpoint | `http://localhost:11434` |
+| `--instructlab-endpoint` | InstructLab endpoint | `http://localhost:8000` |
+| `--vertex-project` | GCP project ID | - |
+| `--vertex-location` | GCP region | `us-central1` |
+| `--azure-endpoint` | Azure OpenAI endpoint | - |
+| `--azure-deployment` | Azure OpenAI deployment | - |
+
+### `kql suggest` Additional Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--focus` | Focus area: `performance`, `readability`, `correctness`, `all` | `all` |
+
+### `kql generate` Additional Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--table` | `-t` | Target table name |
+| `--schema` | `-s` | Table schema (comma-separated columns) |
+
+### `kql fix` Additional Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--dry-run` | Preview fix only | `false` |
 
 ## Shell Completion
-
-Generate shell completion scripts:
 
 ```bash
 # Bash
@@ -360,11 +306,11 @@ kql completion fish > ~/.config/fish/completions/kql.fish
 
 ## License
 
-Apache License 2.0 - see [LICENSE](LICENSE) for details.
+Apache License 2.0 — see [LICENSE](LICENSE).
 
-## References
+## See Also
 
-- [Microsoft Kusto Deep Link Documentation](https://learn.microsoft.com/en-us/kusto/api/rest/deeplink)
+- [kqlparser](https://github.com/cloudygreybeard/kqlparser) — KQL parser library (used by `kql lint`)
 - [Azure Data Explorer](https://dataexplorer.azure.com/)
-- [kqlparser](https://github.com/cloudygreybeard/kqlparser) - The KQL parser library used by this tool
-
+- [KQL Reference](https://learn.microsoft.com/en-us/kusto/query/)
+- [Deep Link Specification](https://learn.microsoft.com/en-us/kusto/api/rest/deeplink)
