@@ -98,7 +98,7 @@ func init() {
 	// Validation flags
 	generateCmd.Flags().BoolVar(&generateNoValidate, "no-validate", false, "Disable validation")
 	generateCmd.Flags().BoolVar(&generateStrict, "strict", false, "Fail with exit code 1 if validation fails")
-	generateCmd.Flags().IntVar(&generateRetries, "retries", -1, "Number of retries on validation failure (default: 2)")
+	generateCmd.Flags().IntVar(&generateRetries, "retries", 2, "Number of retry attempts on validation failure")
 
 	// Feedback control flags
 	generateCmd.Flags().BoolVar(&generateNoFeedback, "no-feedback", false, "Disable all feedback strategies")
@@ -234,9 +234,8 @@ func buildValidationConfig(base ai.ValidationConfig) ai.ValidationConfig {
 	if generateStrict {
 		cfg.Strict = true
 	}
-	if generateRetries >= 0 {
-		cfg.Retries = generateRetries
-	}
+	// Always apply retries flag (default is 2, which is also the config default)
+	cfg.Retries = generateRetries
 
 	// Feedback flags
 	if generateNoFeedback {

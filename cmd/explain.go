@@ -148,25 +148,21 @@ func runExplain(cmd *cobra.Command, args []string) error {
 }
 
 func buildAIConfig() ai.Config {
-	return ai.Config{
-		Provider:    aiProvider,
-		Model:       aiModel,
-		Temperature: aiTemperature,
-		Ollama: ai.OllamaConfig{
-			Endpoint: ollamaEndpoint,
-		},
-		Vertex: ai.VertexConfig{
-			Project:  vertexProject,
-			Location: vertexLocation,
-		},
-		Azure: ai.AzureConfig{
-			Endpoint:   azureEndpoint,
-			Deployment: azureDeployment,
-		},
-		InstructLab: ai.InstructLabConfig{
-			Endpoint: instructEndpoint,
-		},
-	}
+	// Start with defaults to ensure Validation config is initialized
+	cfg := ai.DefaultConfig()
+
+	// Override with flag values (empty strings/zero values are handled by MergeFileConfig)
+	cfg.Provider = aiProvider
+	cfg.Model = aiModel
+	cfg.Temperature = aiTemperature
+	cfg.Ollama.Endpoint = ollamaEndpoint
+	cfg.Vertex.Project = vertexProject
+	cfg.Vertex.Location = vertexLocation
+	cfg.Azure.Endpoint = azureEndpoint
+	cfg.Azure.Deployment = azureDeployment
+	cfg.InstructLab.Endpoint = instructEndpoint
+
+	return cfg
 }
 
 func getParseContext(query string) string {
