@@ -233,4 +233,3 @@ If the query is already well-optimized, say so and explain why.
 Query:
 %s`, focusInstructions, parseContext, "```kql\n"+query+"\n```")
 }
-

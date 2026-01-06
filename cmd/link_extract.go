@@ -63,5 +63,3 @@ func runLinkExtract(cmd *cobra.Command, args []string) error {
 	fmt.Println(query)
 	return nil
 }
-
-

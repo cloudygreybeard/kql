@@ -158,4 +158,3 @@ func DefaultConfig() Config {
 		},
 	}
 }
-

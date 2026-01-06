@@ -266,4 +266,3 @@ func looksLikeExplanation(line string) bool {
 
 	return false
 }
-

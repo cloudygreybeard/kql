@@ -31,5 +31,3 @@ making them ideal for documentation, runbooks, and issue trackers.`,
 func init() {
 	rootCmd.AddCommand(linkCmd)
 }
-
-

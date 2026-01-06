@@ -12,6 +12,7 @@ A command-line toolkit for Kusto Query Language (KQL) and Azure Data Explorer.
 - **Explain** get AI-powered explanations of KQL queries
 - **Suggest** get AI-powered optimization suggestions
 - **Generate** create KQL from natural language descriptions
+- **Fix** get AI-suggested fixes for syntax errors
 
 Deep links open directly in Azure Data Explorer with your query pre-filled, making them ideal for documentation, runbooks, and issue trackers.
 
@@ -175,6 +176,30 @@ kql generate --table StormEvents --schema "State, StartTime, DamageProperty" \
 kql generate --table T "count by category" | kql lint
 ```
 
+### Fix syntax errors
+
+Get AI-suggested fixes for KQL queries with syntax errors:
+
+```bash
+# Fix a query with errors
+kql fix "T | summarize count( by State"
+
+# Dry run (preview the fix without outputting)
+kql fix --dry-run "T | where x >"
+
+# Verbose mode (see errors and validation)
+kql fix -v "T | summarize count( by State"
+
+# From file
+kql fix -f broken_query.kql > fixed_query.kql
+```
+
+The fix command:
+1. Parses the query to identify syntax errors
+2. Sends errors + query to AI for correction
+3. Validates the suggested fix
+4. Outputs the corrected query
+
 ## Commands
 
 ```
@@ -184,6 +209,7 @@ kql lint           Validate KQL query syntax and semantics
 kql explain        Explain a KQL query using AI
 kql suggest        Get AI-powered optimization suggestions
 kql generate       Generate KQL from natural language
+kql fix            Fix syntax errors using AI
 kql version        Print version information
 kql help           Help about any command
 kql completion     Generate shell completion scripts
@@ -248,6 +274,18 @@ kql completion     Generate shell completion scripts
 | `--temperature` | Creativity (0.0-1.0) | `0.2` |
 | `--file` `-f` | Read description from file | - |
 | `--verbose` `-v` | Show additional context | `false` |
+| `--timeout` | Timeout in seconds | `60` |
+
+### `kql fix`
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--dry-run` | Preview fix without outputting | `false` |
+| `--provider` | AI provider (same as explain) | `ollama` |
+| `--model` | Model name (provider-specific) | `llama3.2` |
+| `--temperature` | Creativity (0.0-1.0) | `0.1` |
+| `--file` `-f` | Read query from file | - |
+| `--verbose` `-v` | Show errors and reasoning | `false` |
 | `--timeout` | Timeout in seconds | `60` |
 
 ### AI Provider Flags (for `explain` and `suggest`)
