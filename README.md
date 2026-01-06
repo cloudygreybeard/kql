@@ -166,7 +166,7 @@ kql suggest --focus readability -f complex_query.kql
 Create KQL from natural language descriptions:
 
 ```bash
-# Simple generation
+# Simple generation (with validation, default)
 kql generate "count events by state"
 
 # With table context
@@ -176,8 +176,15 @@ kql generate --table StormEvents "show top 10 states by damage"
 kql generate --table StormEvents --schema "State, StartTime, DamageProperty" \
     "find events in Texas with damage over 1 million"
 
-# Validate the result
-kql generate --table T "count by category" | kql lint
+# Strict mode: fail if AI can't generate valid KQL
+kql generate --strict "summarize by category"
+
+# Skip validation for raw model output
+kql generate --no-validate "complex request"
+
+# Use preset for quick configuration
+kql generate --preset thorough "count by state"  # More retries
+kql generate --preset minimal "count by state"   # No retries, faster
 ```
 
 ### Fix
@@ -185,17 +192,50 @@ kql generate --table T "count by category" | kql lint
 Get AI-suggested fixes for syntax errors:
 
 ```bash
-# Fix a broken query
+# Fix a broken query (with validation and retries)
 kql fix "T | summarize count( by State"
 
 # Preview without output
 kql fix --dry-run "T | where x >"
 
-# Verbose (show errors and reasoning)
+# Verbose (show errors, attempts, and reasoning)
 kql fix -v "T | summarize count( by State"
+
+# Strict mode: fail if fix still has errors
+kql fix --strict "T | where x >"
+
+# Custom retry count
+kql fix --retries 5 "complex broken query"
 
 # Fix and save
 kql fix -f broken.kql > fixed.kql
+```
+
+### Output Validation
+
+The `generate` and `fix` commands validate AI-generated KQL before output:
+
+1. **Parse** the generated query with `kqlparser`
+2. **Retry** with error feedback if validation fails (default: 2 retries)
+3. **Output** with warning (default) or fail (strict mode)
+
+Retry prompts include:
+- Error messages from the parser
+- Contextual hints for common mistakes
+- Syntax examples for relevant operators
+- Progressive detail on subsequent attempts
+
+```bash
+# Verbose mode shows the validation process
+$ kql generate -v "count by state"
+Using ollama provider with model llama3.2...
+Validation: enabled (retries=2, strict=false)
+Attempt 1/3: generating...
+  ✗ 1 syntax error(s)
+    Line 1, Col 15: expected ')' before 'by'
+Attempt 2/3: retrying with error feedback (temp=0.30)...
+  ✓ Valid KQL
+StormEvents | summarize count() by State
 ```
 
 ## Configuration
@@ -221,9 +261,29 @@ ai:
 
   instructlab:
     endpoint: http://localhost:8000
+
+  # Validation settings for generate and fix commands
+  validation:
+    enabled: true
+    strict: false
+    retries: 2
+    feedback:
+      errors: true
+      hints: true
+      examples: true
+      progressive: true
+    temperature:
+      adjust: true
+      increment: 0.1
+      max: 0.8
 ```
 
-Command-line flags override configuration file settings.
+Command-line flags override configuration file settings. Environment variables can also be used:
+
+| Variable | Description |
+|----------|-------------|
+| `KQL_VALIDATE` | Enable/disable validation (`true`/`false`) |
+| `KQL_VALIDATE_STRICT` | Enable strict mode |
 
 ## Flag Reference
 
@@ -271,6 +331,32 @@ Command-line flags override configuration file settings.
 | `--vertex-location` | GCP region | `us-central1` |
 | `--azure-endpoint` | Azure OpenAI endpoint | - |
 | `--azure-deployment` | Azure OpenAI deployment | - |
+
+### Validation Flags (`generate`, `fix`)
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--no-validate` | Disable validation | `false` |
+| `--strict` | Fail with exit code 1 if invalid | `false` |
+| `--retries` | Retry count on failure | `2` |
+| `--preset` | Configuration preset | - |
+| `--no-feedback` | Disable all feedback strategies | `false` |
+| `--no-feedback-errors` | Disable error feedback | `false` |
+| `--no-feedback-hints` | Disable hints | `false` |
+| `--no-feedback-examples` | Disable examples | `false` |
+| `--no-feedback-progressive` | Disable progressive detail | `false` |
+| `--no-retry-temp-adjust` | Disable temperature adjustment | `false` |
+| `--retry-temp-increment` | Temperature increment per retry | `0.1` |
+| `--retry-temp-max` | Max temperature on retry | `0.8` |
+
+**Presets:**
+
+| Preset | Description |
+|--------|-------------|
+| `minimal` | No retries, no hints/examples (fast) |
+| `balanced` | Default settings |
+| `thorough` | 5 retries, progressive feedback |
+| `strict` | Strict mode with 3 retries |
 
 ### `kql suggest` Additional Flags
 

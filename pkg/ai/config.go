@@ -39,6 +39,26 @@ type AIFileConfig struct {
 	InstructLab struct {
 		Endpoint string `yaml:"endpoint"`
 	} `yaml:"instructlab"`
+
+	Validation ValidationFileConfig `yaml:"validation"`
+}
+
+// ValidationFileConfig represents validation settings in the config file.
+type ValidationFileConfig struct {
+	Enabled  *bool `yaml:"enabled"`
+	Strict   *bool `yaml:"strict"`
+	Retries  *int  `yaml:"retries"`
+	Feedback struct {
+		Errors      *bool `yaml:"errors"`
+		Hints       *bool `yaml:"hints"`
+		Examples    *bool `yaml:"examples"`
+		Progressive *bool `yaml:"progressive"`
+	} `yaml:"feedback"`
+	Temperature struct {
+		Adjust    *bool    `yaml:"adjust"`
+		Increment *float32 `yaml:"increment"`
+		Max       *float32 `yaml:"max"`
+	} `yaml:"temperature"`
 }
 
 // LoadConfigFile loads configuration from ~/.kql/config.yaml if it exists.
@@ -120,6 +140,43 @@ func MergeFileConfig(cfg Config, fileCfg *FileConfig) Config {
 	// InstructLab
 	if cfg.InstructLab.Endpoint == "" && ai.InstructLab.Endpoint != "" {
 		cfg.InstructLab.Endpoint = ai.InstructLab.Endpoint
+	}
+
+	// Validation settings (file config provides defaults, pointers allow explicit false)
+	v := ai.Validation
+	if v.Enabled != nil {
+		cfg.Validation.Enabled = *v.Enabled
+	}
+	if v.Strict != nil {
+		cfg.Validation.Strict = *v.Strict
+	}
+	if v.Retries != nil {
+		cfg.Validation.Retries = *v.Retries
+	}
+
+	// Feedback settings
+	if v.Feedback.Errors != nil {
+		cfg.Validation.Feedback.Errors = *v.Feedback.Errors
+	}
+	if v.Feedback.Hints != nil {
+		cfg.Validation.Feedback.Hints = *v.Feedback.Hints
+	}
+	if v.Feedback.Examples != nil {
+		cfg.Validation.Feedback.Examples = *v.Feedback.Examples
+	}
+	if v.Feedback.Progressive != nil {
+		cfg.Validation.Feedback.Progressive = *v.Feedback.Progressive
+	}
+
+	// Temperature adjustment settings
+	if v.Temperature.Adjust != nil {
+		cfg.Validation.Temp.Adjust = *v.Temperature.Adjust
+	}
+	if v.Temperature.Increment != nil {
+		cfg.Validation.Temp.Increment = *v.Temperature.Increment
+	}
+	if v.Temperature.Max != nil {
+		cfg.Validation.Temp.Max = *v.Temperature.Max
 	}
 
 	return cfg

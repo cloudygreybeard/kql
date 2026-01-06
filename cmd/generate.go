@@ -20,6 +20,20 @@ var (
 	generateTimeout   int
 	generateTable     string
 	generateSchema    string
+
+	// Validation flags
+	generateNoValidate         bool
+	generateStrict             bool
+	generateRetries            int
+	generateNoFeedback         bool
+	generateNoFeedbackErrors   bool
+	generateNoFeedbackHints    bool
+	generateNoFeedbackExamples bool
+	generateNoFeedbackProg     bool
+	generateNoTempAdjust       bool
+	generateTempIncrement      float32
+	generateTempMax            float32
+	generatePreset             string
 )
 
 var generateCmd = &cobra.Command{
@@ -80,6 +94,26 @@ func init() {
 	// Context options
 	generateCmd.Flags().StringVarP(&generateTable, "table", "t", "", "Target table name")
 	generateCmd.Flags().StringVarP(&generateSchema, "schema", "s", "", "Table schema (comma-separated columns)")
+
+	// Validation flags
+	generateCmd.Flags().BoolVar(&generateNoValidate, "no-validate", false, "Disable validation")
+	generateCmd.Flags().BoolVar(&generateStrict, "strict", false, "Fail with exit code 1 if validation fails")
+	generateCmd.Flags().IntVar(&generateRetries, "retries", -1, "Number of retries on validation failure (default: 2)")
+
+	// Feedback control flags
+	generateCmd.Flags().BoolVar(&generateNoFeedback, "no-feedback", false, "Disable all feedback strategies")
+	generateCmd.Flags().BoolVar(&generateNoFeedbackErrors, "no-feedback-errors", false, "Disable error feedback")
+	generateCmd.Flags().BoolVar(&generateNoFeedbackHints, "no-feedback-hints", false, "Disable hints")
+	generateCmd.Flags().BoolVar(&generateNoFeedbackExamples, "no-feedback-examples", false, "Disable examples")
+	generateCmd.Flags().BoolVar(&generateNoFeedbackProg, "no-feedback-progressive", false, "Disable progressive detail")
+
+	// Temperature adjustment flags
+	generateCmd.Flags().BoolVar(&generateNoTempAdjust, "no-retry-temp-adjust", false, "Disable temperature adjustment on retry")
+	generateCmd.Flags().Float32Var(&generateTempIncrement, "retry-temp-increment", 0, "Temperature increment per retry")
+	generateCmd.Flags().Float32Var(&generateTempMax, "retry-temp-max", 0, "Max temperature on retry")
+
+	// Presets
+	generateCmd.Flags().StringVar(&generatePreset, "preset", "", "Preset: minimal, balanced, thorough, strict")
 }
 
 func runGenerate(cmd *cobra.Command, args []string) error {
@@ -104,14 +138,14 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		cfg.Provider = "ollama"
 	}
 
+	// Apply validation config from flags and environment
+	valCfg := buildValidationConfig(cfg.Validation)
+
 	// Create provider
 	provider, err := ai.NewProvider(cfg)
 	if err != nil {
 		return fmt.Errorf("creating AI provider: %w", err)
 	}
-
-	// Build prompt
-	prompt := buildGeneratePrompt(description, generateTable, generateSchema)
 
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(generateTimeout)*time.Second)
@@ -123,19 +157,129 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		if generateTable != "" {
 			fmt.Fprintf(os.Stderr, "Target table: %s\n", generateTable)
 		}
+		if valCfg.Enabled {
+			fmt.Fprintf(os.Stderr, "Validation: enabled (retries=%d, strict=%v)\n", valCfg.Retries, valCfg.Strict)
+		} else {
+			fmt.Fprintf(os.Stderr, "Validation: disabled\n")
+		}
 	}
 
-	// Generate query
-	result, err := provider.Complete(ctx, prompt)
+	// Build request
+	req := ai.GenerateRequest{
+		Prompt: description,
+		Table:  generateTable,
+		Schema: generateSchema,
+	}
+
+	// Verbose output writer
+	var verboseWriter *os.File
+	if generateVerbose {
+		verboseWriter = os.Stderr
+	}
+
+	// Generate with validation
+	result, err := ai.GenerateWithValidation(
+		ctx,
+		provider,
+		req,
+		valCfg,
+		cfg.Temperature,
+		func(r ai.GenerateRequest) string {
+			return buildGeneratePrompt(r.Prompt, r.Table, r.Schema)
+		},
+		extractKQL,
+		verboseWriter,
+	)
 	if err != nil {
-		return fmt.Errorf("generating query: %w", err)
+		return err
 	}
 
-	// Extract just the KQL from the response
-	query := extractKQL(result)
-	fmt.Println(query)
+	// Handle result based on validation outcome
+	if !result.Valid {
+		if valCfg.Strict {
+			fmt.Fprint(os.Stderr, ai.FormatValidationError(result))
+			os.Exit(1)
+		}
+		fmt.Fprint(os.Stderr, ai.FormatValidationWarning(result))
+	}
 
+	fmt.Println(result.Query)
 	return nil
+}
+
+// buildValidationConfig builds validation config from flags, environment, and defaults.
+func buildValidationConfig(base ai.ValidationConfig) ai.ValidationConfig {
+	cfg := base
+
+	// Apply preset first
+	switch generatePreset {
+	case "minimal":
+		cfg.Retries = 0
+		cfg.Feedback.Hints = false
+		cfg.Feedback.Examples = false
+	case "balanced":
+		// Use defaults
+	case "thorough":
+		cfg.Retries = 5
+		cfg.Feedback.Progressive = true
+	case "strict":
+		cfg.Strict = true
+		cfg.Retries = 3
+	}
+
+	// Override with explicit flags
+	if generateNoValidate {
+		cfg.Enabled = false
+	}
+	if generateStrict {
+		cfg.Strict = true
+	}
+	if generateRetries >= 0 {
+		cfg.Retries = generateRetries
+	}
+
+	// Feedback flags
+	if generateNoFeedback {
+		cfg.Feedback.Errors = false
+		cfg.Feedback.Hints = false
+		cfg.Feedback.Examples = false
+		cfg.Feedback.Progressive = false
+	} else {
+		if generateNoFeedbackErrors {
+			cfg.Feedback.Errors = false
+		}
+		if generateNoFeedbackHints {
+			cfg.Feedback.Hints = false
+		}
+		if generateNoFeedbackExamples {
+			cfg.Feedback.Examples = false
+		}
+		if generateNoFeedbackProg {
+			cfg.Feedback.Progressive = false
+		}
+	}
+
+	// Temperature adjustment flags
+	if generateNoTempAdjust {
+		cfg.Temp.Adjust = false
+	}
+	if generateTempIncrement > 0 {
+		cfg.Temp.Increment = generateTempIncrement
+	}
+	if generateTempMax > 0 {
+		cfg.Temp.Max = generateTempMax
+	}
+
+	// Environment variable overrides
+	if env := os.Getenv("KQL_VALIDATE"); env == "false" || env == "0" {
+		cfg.Enabled = false
+	}
+	if env := os.Getenv("KQL_VALIDATE_STRICT"); env == "true" || env == "1" {
+		cfg.Strict = true
+	}
+	// Add more env var handling as needed...
+
+	return cfg
 }
 
 func buildGeneratePrompt(description, table, schema string) string {

@@ -36,6 +36,18 @@ const (
 
 	// Azure defaults
 	DefaultAzureModel = "gpt-4o"
+
+	// Validation defaults
+	DefaultValidationEnabled       = true
+	DefaultValidationStrict        = false
+	DefaultValidationRetries       = 2
+	DefaultFeedbackErrors          = true
+	DefaultFeedbackHints           = true
+	DefaultFeedbackExamples        = true
+	DefaultFeedbackProgressive     = true
+	DefaultRetryTempAdjust         = true
+	DefaultRetryTempIncrement      = 0.1
+	DefaultRetryTempMax    float32 = 0.8
 )
 
 // Provider defines the interface for AI/LLM providers.
@@ -90,6 +102,9 @@ type Config struct {
 
 	// InstructLab configuration
 	InstructLab InstructLabConfig
+
+	// Validation configuration for generated output
+	Validation ValidationConfig
 }
 
 // OllamaConfig holds Ollama-specific configuration.
@@ -125,6 +140,71 @@ type InstructLabConfig struct {
 	Endpoint string
 }
 
+// ValidationConfig holds validation and retry settings for AI-generated output.
+type ValidationConfig struct {
+	// Enabled enables validation of generated KQL (default: true)
+	Enabled bool
+
+	// Strict fails with exit code 1 if validation fails (default: false)
+	Strict bool
+
+	// Retries is the number of retry attempts on validation failure (default: 2)
+	Retries int
+
+	// Feedback controls what information is included in retry prompts
+	Feedback FeedbackConfig
+
+	// Temp controls temperature adjustment on retries
+	Temp TempAdjustConfig
+}
+
+// FeedbackConfig controls what feedback is included in retry prompts.
+type FeedbackConfig struct {
+	// Errors includes the specific error messages (default: true)
+	Errors bool
+
+	// Hints includes contextual hints for error types (default: true)
+	Hints bool
+
+	// Examples includes syntax examples (default: true)
+	Examples bool
+
+	// Progressive increases detail with each retry (default: true)
+	Progressive bool
+}
+
+// TempAdjustConfig controls temperature adjustment on retries.
+type TempAdjustConfig struct {
+	// Adjust enables temperature adjustment (default: true)
+	Adjust bool
+
+	// Increment is the temperature increase per retry (default: 0.1)
+	Increment float32
+
+	// Max caps the adjusted temperature (default: 0.8)
+	Max float32
+}
+
+// DefaultValidationConfig returns validation config with sensible defaults.
+func DefaultValidationConfig() ValidationConfig {
+	return ValidationConfig{
+		Enabled: DefaultValidationEnabled,
+		Strict:  DefaultValidationStrict,
+		Retries: DefaultValidationRetries,
+		Feedback: FeedbackConfig{
+			Errors:      DefaultFeedbackErrors,
+			Hints:       DefaultFeedbackHints,
+			Examples:    DefaultFeedbackExamples,
+			Progressive: DefaultFeedbackProgressive,
+		},
+		Temp: TempAdjustConfig{
+			Adjust:    DefaultRetryTempAdjust,
+			Increment: DefaultRetryTempIncrement,
+			Max:       DefaultRetryTempMax,
+		},
+	}
+}
+
 // NewProvider creates a provider based on the configuration.
 func NewProvider(cfg Config) (Provider, error) {
 	switch cfg.Provider {
@@ -156,5 +236,6 @@ func DefaultConfig() Config {
 		InstructLab: InstructLabConfig{
 			Endpoint: DefaultInstructLabEndpoint,
 		},
+		Validation: DefaultValidationConfig(),
 	}
 }

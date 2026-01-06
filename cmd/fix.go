@@ -20,6 +20,10 @@ var (
 	fixVerbose   bool
 	fixTimeout   int
 	fixDryRun    bool
+
+	// Validation flags for fix
+	fixRetries int
+	fixStrict  bool
 )
 
 var fixCmd = &cobra.Command{
@@ -75,6 +79,10 @@ func init() {
 	fixCmd.Flags().BoolVarP(&fixVerbose, "verbose", "v", false, "Show errors and reasoning")
 	fixCmd.Flags().IntVar(&fixTimeout, "timeout", 60, "Timeout in seconds")
 	fixCmd.Flags().BoolVar(&fixDryRun, "dry-run", false, "Show analysis without outputting fixed query")
+
+	// Retry and validation options
+	fixCmd.Flags().IntVar(&fixRetries, "retries", 2, "Number of retries if fix still has errors")
+	fixCmd.Flags().BoolVar(&fixStrict, "strict", false, "Fail with exit code 1 if fix still has errors")
 }
 
 func runFix(cmd *cobra.Command, args []string) error {
@@ -95,9 +103,6 @@ func runFix(cmd *cobra.Command, args []string) error {
 		fmt.Println(query)
 		return nil
 	}
-
-	// Build error context
-	errorContext := buildErrorContext(query, result.Errors)
 
 	if fixVerbose {
 		fmt.Fprintln(os.Stderr, "Found errors:")
@@ -128,9 +133,6 @@ func runFix(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("creating AI provider: %w", err)
 	}
 
-	// Build prompt
-	prompt := buildFixPrompt(query, errorContext)
-
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(fixTimeout)*time.Second)
 	defer cancel()
@@ -140,14 +142,53 @@ func runFix(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "Using %s provider with model %s...\n", provider.Name(), provider.Model())
 	}
 
-	// Get fix suggestion
-	response, err := provider.Complete(ctx, prompt)
-	if err != nil {
-		return fmt.Errorf("getting fix suggestion: %w", err)
-	}
+	// Retry loop for fixing
+	maxAttempts := fixRetries + 1
+	var fixedQuery string
+	var fixErrors []error
+	currentQuery := query
+	currentErrors := result.Errors
 
-	// Extract the fixed query
-	fixedQuery := extractFixedQuery(response)
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if fixVerbose {
+			fmt.Fprintf(os.Stderr, "Attempt %d/%d: requesting fix...\n", attempt, maxAttempts)
+		}
+
+		// Build prompt with current errors
+		errorContext := buildErrorContext(currentQuery, currentErrors)
+		prompt := buildFixPrompt(currentQuery, errorContext)
+
+		// Get fix suggestion
+		response, err := provider.Complete(ctx, prompt)
+		if err != nil {
+			return fmt.Errorf("getting fix suggestion (attempt %d): %w", attempt, err)
+		}
+
+		// Extract the fixed query
+		fixedQuery = extractFixedQuery(response)
+
+		// Validate the fix
+		fixResult := kqlparser.Parse("fixed", fixedQuery)
+		if len(fixResult.Errors) == 0 {
+			if fixVerbose {
+				fmt.Fprintln(os.Stderr, "  ✓ Fix is syntactically valid")
+			}
+			fixErrors = nil
+			break
+		}
+
+		fixErrors = fixResult.Errors
+		if fixVerbose {
+			fmt.Fprintf(os.Stderr, "  ✗ Fix still has %d error(s)\n", len(fixErrors))
+			for _, e := range fixErrors {
+				fmt.Fprintf(os.Stderr, "    - %v\n", e)
+			}
+		}
+
+		// For next attempt, use the AI's fix as the starting point
+		currentQuery = fixedQuery
+		currentErrors = fixErrors
+	}
 
 	if fixDryRun {
 		fmt.Fprintln(os.Stderr, "=== Original Query ===")
@@ -157,17 +198,27 @@ func runFix(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, fixedQuery)
 		fmt.Fprintln(os.Stderr)
 
-		// Validate the fix
-		fixResult := kqlparser.Parse("fixed", fixedQuery)
-		if len(fixResult.Errors) == 0 {
+		if len(fixErrors) == 0 {
 			fmt.Fprintln(os.Stderr, "✓ Suggested fix is syntactically valid")
 		} else {
 			fmt.Fprintln(os.Stderr, "⚠ Suggested fix still has errors:")
-			for _, e := range fixResult.Errors {
+			for _, e := range fixErrors {
 				fmt.Fprintf(os.Stderr, "  - %v\n", e)
 			}
 		}
 		return nil
+	}
+
+	// Handle result based on validation outcome
+	if len(fixErrors) > 0 {
+		if fixStrict {
+			fmt.Fprintf(os.Stderr, "Error: failed to generate valid fix after %d attempt(s)\n", maxAttempts)
+			for _, e := range fixErrors {
+				fmt.Fprintf(os.Stderr, "  - %v\n", e)
+			}
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stderr, "⚠ Warning: fix still has syntax errors (after %d attempt(s))\n", maxAttempts)
 	}
 
 	// Output the fixed query
