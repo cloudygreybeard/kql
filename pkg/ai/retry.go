@@ -58,6 +58,7 @@ func GenerateWithValidation(
 	buildPrompt func(GenerateRequest) string,
 	extractKQL func(string) string,
 	verbose io.Writer,
+	debug io.Writer,
 ) (*GenerateResult, error) {
 	if !cfg.Enabled {
 		// Validation disabled: single attempt, no validation
@@ -110,8 +111,18 @@ func GenerateWithValidation(
 			return nil, fmt.Errorf("generating query (attempt %d): %w", attempt, err)
 		}
 
+		// Debug: show raw response
+		if debug != nil {
+			fmt.Fprintf(debug, "--- Raw LLM Response (attempt %d) ---\n%s\n--- End Raw Response ---\n", attempt, response)
+		}
+
 		kql := extractKQL(response)
 		lastKQL = kql
+
+		// Debug: show extracted KQL
+		if debug != nil {
+			fmt.Fprintf(debug, "--- Extracted KQL ---\n%s\n--- End Extracted ---\n\n", kql)
+		}
 
 		// Validate
 		parseResult := kqlparser.Parse("generated.kql", kql)
@@ -246,6 +257,12 @@ func getErrorHints(errors []ValidationError) []string {
 		// String literal issues
 		if strings.Contains(msg, "string") || strings.Contains(msg, "quote") {
 			hints["Use single or double quotes for string literals"] = true
+		}
+
+		// Backtick/multi-line string issues (LLM wrapping output in backticks)
+		if strings.Contains(msg, "triple delimiter") || strings.Contains(msg, "multi-line string") ||
+			strings.Contains(msg, "illegal") {
+			hints["Do NOT wrap output in backticks - output raw KQL only"] = true
 		}
 
 		// Datetime issues

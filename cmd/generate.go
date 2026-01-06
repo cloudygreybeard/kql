@@ -17,6 +17,7 @@ import (
 var (
 	generateInputFile string
 	generateVerbose   bool
+	generateDebug     bool
 	generateTimeout   int
 	generateTable     string
 	generateSchema    string
@@ -89,6 +90,7 @@ func init() {
 	// Command options
 	generateCmd.Flags().StringVarP(&generateInputFile, "file", "f", "", "Read description from file")
 	generateCmd.Flags().BoolVarP(&generateVerbose, "verbose", "v", false, "Show additional context")
+	generateCmd.Flags().BoolVar(&generateDebug, "debug", false, "Show raw LLM responses (for troubleshooting)")
 	generateCmd.Flags().IntVar(&generateTimeout, "timeout", 60, "Timeout in seconds")
 
 	// Context options
@@ -171,10 +173,13 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		Schema: generateSchema,
 	}
 
-	// Verbose output writer
-	var verboseWriter *os.File
+	// Verbose and debug output writers
+	var verboseWriter, debugWriter *os.File
 	if generateVerbose {
 		verboseWriter = os.Stderr
+	}
+	if generateDebug {
+		debugWriter = os.Stderr
 	}
 
 	// Generate with validation
@@ -189,6 +194,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		},
 		extractKQL,
 		verboseWriter,
+		debugWriter,
 	)
 	if err != nil {
 		return err
@@ -287,10 +293,11 @@ func buildGeneratePrompt(description, table, schema string) string {
 	context.WriteString(`You are a Kusto Query Language (KQL) expert. Generate a KQL query based on the user's natural language description.
 
 Rules:
-1. Output ONLY the KQL query, no explanations
-2. Use proper KQL syntax and operators
-3. Include comments only if the query is complex
-4. Prefer efficient query patterns
+1. Output ONLY the raw KQL query, no explanations
+2. Do NOT wrap the query in backticks or code blocks
+3. Use proper KQL syntax and operators
+4. Include comments only if the query is complex
+5. Prefer efficient query patterns
 `)
 
 	if table != "" {
@@ -312,7 +319,7 @@ Rules:
 func extractKQL(response string) string {
 	response = strings.TrimSpace(response)
 
-	// Check for markdown code blocks
+	// Check for markdown code blocks (triple backticks)
 	if strings.Contains(response, "```") {
 		// Try to find kql/kusto code block first
 		for _, lang := range []string{"```kql", "```kusto", "```"} {
@@ -322,12 +329,15 @@ func extractKQL(response string) string {
 				if end := strings.Index(response[start:], "```"); end != -1 {
 					extracted := strings.TrimSpace(response[start : start+end])
 					if extracted != "" {
-						return extracted
+						return stripInlineBackticks(extracted)
 					}
 				}
 			}
 		}
 	}
+
+	// Strip inline backticks (e.g., `query here`)
+	response = stripInlineBackticks(response)
 
 	// If no code blocks, try to find lines that look like KQL
 	// (start with a table name or common operators)
@@ -408,4 +418,21 @@ func looksLikeExplanation(line string) bool {
 	}
 
 	return false
+}
+
+// stripInlineBackticks removes inline backticks from a string.
+// Handles cases like `query here` or queries starting/ending with backticks.
+func stripInlineBackticks(s string) string {
+	s = strings.TrimSpace(s)
+
+	// Remove surrounding single backticks
+	if len(s) >= 2 && s[0] == '`' && s[len(s)-1] == '`' {
+		s = s[1 : len(s)-1]
+	}
+
+	// Also handle case where only leading or trailing backtick
+	s = strings.TrimPrefix(s, "`")
+	s = strings.TrimSuffix(s, "`")
+
+	return strings.TrimSpace(s)
 }
