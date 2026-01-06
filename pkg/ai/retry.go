@@ -381,4 +381,3 @@ func parseErrorToValidationError(err error) ValidationError {
 		Message: msg,
 	}
 }
-

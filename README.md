@@ -124,7 +124,7 @@ Exit codes: `0` = valid, `1` = errors found.
 |----------|-------------|-------|
 | `ollama` | Local models (Llama, Mistral, etc.) | [Install Ollama](https://ollama.ai) |
 | `instructlab` | Local fine-tuned models | [Install InstructLab](https://instructlab.ai) |
-| `vertex` | Google Vertex AI (Gemini, Claude) | GCP project with Vertex API enabled |
+| `vertex` | Google Vertex AI (Claude, Gemini) | GCP project with Vertex API + Model Garden |
 | `azure` | Azure OpenAI (GPT-4, GPT-4o) | Azure OpenAI deployment |
 
 ### Explain
@@ -138,8 +138,9 @@ kql explain "StormEvents | summarize count() by State"
 # From file
 kql explain -f query.kql
 
-# Vertex AI
-kql explain --provider vertex --vertex-project my-project "T | take 10"
+# Vertex AI with Claude (recommended for best quality)
+kql explain --provider vertex --vertex-project my-project \
+    --model claude-opus-4-5 "T | take 10"
 
 # Azure OpenAI
 kql explain --provider azure --azure-endpoint https://myorg.openai.azure.com \
@@ -251,9 +252,10 @@ ai:
   ollama:
     endpoint: http://localhost:11434
 
+  # Vertex AI with Claude (requires Model Garden access)
   vertex:
     project: my-gcp-project
-    location: us-central1
+    location: us-east5  # us-east5 for Claude, us-central1 for Gemini
 
   azure:
     endpoint: https://myorg.openai.azure.com
@@ -328,7 +330,7 @@ Command-line flags override configuration file settings. Environment variables c
 | `--ollama-endpoint` | Ollama endpoint | `http://localhost:11434` |
 | `--instructlab-endpoint` | InstructLab endpoint | `http://localhost:8000` |
 | `--vertex-project` | GCP project ID | - |
-| `--vertex-location` | GCP region | `us-central1` |
+| `--vertex-location` | GCP region | `us-east5` |
 | `--azure-endpoint` | Azure OpenAI endpoint | - |
 | `--azure-deployment` | Azure OpenAI deployment | - |
 

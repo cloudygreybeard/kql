@@ -20,9 +20,17 @@ ai:
     endpoint: http://localhost:8000
 
   # Google Vertex AI configuration
+  # Supports Gemini and Claude models via Model Garden
   vertex:
-    project: ""      # GCP project ID (or set KQL_GCP_PROJECT / GOOGLE_CLOUD_PROJECT)
-    location: us-central1
+    project: ""         # GCP project ID (or set KQL_GCP_PROJECT / GOOGLE_CLOUD_PROJECT)
+    location: us-east5  # us-east5 is required for Claude; us-central1 works for Gemini
+
+  # Example for Claude on Vertex AI:
+  # provider: vertex
+  # model: claude-opus-4-5
+  # vertex:
+  #   project: my-gcp-project
+  #   location: us-east5
 
   # Azure OpenAI configuration
   azure:

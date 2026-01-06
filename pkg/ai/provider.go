@@ -31,8 +31,8 @@ const (
 	DefaultInstructLabModel    = "default"
 
 	// Vertex AI defaults
-	DefaultVertexLocation = "us-central1"
-	DefaultVertexModel    = "gemini-1.5-flash"
+	DefaultVertexLocation = "us-east5"         // us-east5 required for Claude models
+	DefaultVertexModel    = "claude-opus-4-5"  // Claude 4.5 Opus via Model Garden
 
 	// Azure defaults
 	DefaultAzureModel = "gpt-4o"
