@@ -10,6 +10,7 @@ A command-line toolkit for Kusto Query Language (KQL) and Azure Data Explorer.
 
 | Command | Description |
 |---------|-------------|
+| `kql query` | Run a query against an Azure Data Explorer cluster |
 | `kql link build` | Create shareable deep links from KQL queries |
 | `kql link extract` | Extract queries from existing deep links |
 | `kql lint` | Validate KQL syntax and semantics |
@@ -43,6 +44,117 @@ make build
 ### Binary Releases
 
 Download pre-built binaries from the [Releases page](https://github.com/cloudygreybeard/kql/releases).
+
+## Query
+
+`kql query` runs a query against a cluster and prints the result.
+
+```bash
+# Inline query
+kql query -c help -d Samples "StormEvents | count"
+
+# From a file, as CSV
+kql query -c help -d Samples -f storms.kql --format csv
+
+# From stdin, as newline-delimited JSON for streaming into jq
+echo "StormEvents | take 5" | kql query -c help -d Samples --format ndjson | jq .
+
+# With typed query parameters
+kql query -c help -d Samples \
+  --param 'state:string=KANSAS' --param 'n:long=10' \
+  'declare query_parameters(state:string, n:long);
+   StormEvents | where State == state | take n'
+```
+
+The cluster may be given as a full URL, a bare hostname, or a short name that is
+expanded to `https://<name>.kusto.windows.net`. Aliases defined under `clusters:`
+in the configuration file are resolved first.
+
+### Authentication
+
+`kql` acquires tokens through the Azure CLI's public `az account get-access-token`
+interface and stores no credentials of its own. It never reads the Azure CLI's
+token cache directly: that file is an internal implementation detail, its
+representation varies by platform, and it holds refresh tokens that are
+longer-lived and broader in scope than the access tokens a query needs.
+
+The `--auth` flag selects the credential source:
+
+| Source | Behaviour |
+|--------|-----------|
+| `auto` | Try `KQL_TOKEN`, then a configured helper, then the Azure CLI (default) |
+| `az` | Use only the Azure CLI |
+| `exec` | Use only the credential helper named by `query.auth_command` |
+| `env` | Read a bearer token from `KQL_TOKEN` |
+
+Tokens are requested for the cluster's own audience rather than the shared
+`https://kusto.kusto.windows.net` scope, so a token obtained for one cluster
+cannot be replayed against another. Use `--resource` to override this.
+
+#### Credential helpers
+
+Where the Azure CLI cannot supply a token, `query.auth_command` names an
+external helper. `kql` runs it directly, **never through a shell**, and uses
+its arguments verbatim: nothing is substituted into them, and no quoting or
+word splitting is performed. The audience is passed in the `KQL_AUTH_RESOURCE`
+environment variable, alongside any variables given in `query.auth_env`.
+
+The helper writes a token on standard output, either as the JSON object
+`az account get-access-token --output json` emits, or as a bare token on a
+single line. It is not given standard input, since `kql` may itself be reading
+the query from there. Its standard error is shown only if it fails, truncated
+and with anything resembling a token removed.
+
+```yaml
+query:
+  auth: exec
+  auth_command: [/opt/bin/get-kusto-token]
+  auth_env:
+    BROKER_PROFILE: work
+```
+
+Because anyone able to write the configuration file could choose a command
+`kql` will run, the file and its directory must not be writable by other users
+whenever `auth_command` is set; `kql` refuses to proceed otherwise. Use
+`--dry-run` to see the command that would be run without running it.
+
+A helper is useful wherever the token comes from outside the local Azure CLI
+session: a hardware token, a broker reachable only from another environment,
+or a short-lived credential minted by a workload identity system.
+
+### Statistics
+
+`--stats` prints a digest of the query's cost to standard error, leaving stdout
+free for results:
+
+```
+$ kql query -c help -d Samples --stats \
+    "StormEvents | where State == 'KANSAS' | summarize count() by EventType | top 3 by count_"
+EventType          count_
+-----------------  ------
+Hail               1109
+Thunderstorm Wind  476
+Winter Weather     283
+
+(3 rows)
+execution time        0.0042479
+cpu                   00:00:00.0156250
+memory peak per node  1.0 MiB
+rows scanned          59066
+rows total            59066
+extents scanned       1
+extents total         1
+cross-cluster bytes   0 B
+```
+
+Use `--stats=full` for the complete payload the service returns.
+
+### Checking a query before sending it
+
+`--lint` validates syntax locally and refuses to send a query that fails,
+turning a network round trip into an immediate error. It is off by default so
+that a parser limitation can never block a query the service would accept.
+`--dry-run` prints the resolved request without sending it.
 
 ## Deep Links
 
@@ -244,6 +356,16 @@ StormEvents | summarize count() by State
 Configure defaults in `~/.kql/config.yaml`:
 
 ```yaml
+clusters:
+  prod-eu: mycluster.westeurope
+  help: https://help.kusto.windows.net
+
+query:
+  database: mydb
+  format: table
+  auth: auto
+  # timeout: 4m           # omitted, the cluster's own default applies
+
 ai:
   provider: ollama
   model: llama3.2
@@ -286,8 +408,30 @@ Command-line flags override configuration file settings. Environment variables c
 |----------|-------------|
 | `KQL_VALIDATE` | Enable/disable validation (`true`/`false`) |
 | `KQL_VALIDATE_STRICT` | Enable strict mode |
+| `KQL_TOKEN` | Bearer token used by `kql query --auth env` |
+| `KQL_AUTH_RESOURCE` | Set by `kql` for a credential helper; names the audience to obtain a token for |
 
 ## Flag Reference
+
+### `kql query`
+
+| Flag | Short | Description | Required |
+|------|-------|-------------|----------|
+| `--cluster` | `-c` | Cluster URL, hostname, short name, or configured alias | Yes |
+| `--database` | `-d` | Database name | Yes |
+| `--file` | `-f` | Read query from file | No |
+| `--format` | | Output format: `table`, `tsv`, `csv`, `json`, `ndjson` (default `table`) | No |
+| `--output` | `-o` | Write results to a file instead of standard output | No |
+| `--no-headers` | | Omit the header row from tabular output | No |
+| `--param` | `-p` | Query parameter as `name=value`, repeatable | No |
+| `--timeout` | | Server-side query timeout (default: the cluster's own) | No |
+| `--no-truncation` | | Disable the cluster's result size limits | No |
+| `--stats` | | Print query statistics: `summary` (default) or `full` | No |
+| `--auth` | | Credential source: `auto`, `az`, `exec`, `env` | No |
+| `--tenant` | | Tenant to request a token for | No |
+| `--resource` | | Override the token audience (default the cluster URL) | No |
+| `--dry-run` | | Print the resolved request without sending it | No |
+| `--lint` | | Validate the query locally before sending it | No |
 
 ### `kql link build`
 
