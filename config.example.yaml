@@ -1,6 +1,33 @@
 # kql configuration file
 # Copy to ~/.kql/config.yaml and customize
 
+# Cluster aliases for `kql query -c <alias>`.
+# An alias may be a short name, a bare hostname, or a full URL.
+clusters:
+  # prod-eu: mycluster.westeurope
+  # help: https://help.kusto.windows.net
+
+# Defaults for `kql query`. Command-line flags take precedence.
+query:
+  # database: mydb
+  # format: table          # table, tsv, csv, json, ndjson
+  # timeout: 4m            # omitted, the cluster's own default applies
+  # auth: auto             # auto, az, exec, env
+
+  # An external credential helper, used when auth is exec, or under auto when
+  # no token is supplied in KQL_TOKEN. It is run directly and never through a
+  # shell: the arguments below are passed to the operating system verbatim.
+  # The audience is supplied in KQL_AUTH_RESOURCE, and the helper writes a
+  # token on standard output, either as the JSON object
+  # `az account get-access-token --output json` emits, or as a bare token.
+  #
+  # While auth_command is set, this file and its directory must not be
+  # writable by other users.
+  # auth_command:
+  #   - /opt/bin/get-kusto-token
+  # auth_env:
+  #   BROKER_PROFILE: work
+
 ai:
   # Default AI provider: ollama, instructlab, vertex, azure
   provider: ollama
